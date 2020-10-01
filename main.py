@@ -62,8 +62,6 @@ def read_arguments():
     parser.add_argument("-data-path", type=str, default=None, help="path to the dataset to use [default: None]")
     parser.add_argument("-data-name", type=str, default=None, help="filename of the dataset to use, 'train.csv', 'dev.csv', and 'test.csv' will be added to the end of this string [default: None]")
     parser.add_argument("-results-path", type=str, default=None, help="filename and path where the results will be saved [default: None]")
-    ### NOTE!!!
-    #This will only work with my data unless you uncomment the part in the dataloader
     parser.add_argument("-use-half", type=bool, default=False, help="whether to test on only half of the data [default: False]")
     parser.add_argument("-first-half", type=bool, default=False, help="half of the data to use, False for first, True for second [default: False]")
     #### NEW ####
@@ -136,9 +134,6 @@ def load_dataset(text_field, label_field, args, **kargs):
     
     
     # The following are for using only half of your data for whatever reason
-    
-    """
-    # Uncomment these lines to be able to use generic data
     if args.use_half:
     
         L = len(test_data) // 2
@@ -148,27 +143,6 @@ def load_dataset(text_field, label_field, args, **kargs):
             test_df = test_df[:L]
         else:
             test_df = test_df[L:]
-            
-        # Import the new datasets
-        train_data, dev_data, test_data = TextMultiLabelDataset.splits(
-                                          text_field,
-                                          label_field,
-                                          train_df = train_df,
-                                          val_df = val_df,
-                                          test_df = test_df,
-                                          txt_col = "text")
-    """
-    
-    # Comment these lines if you are not using my data
-    if args.use_half:
-        
-        L = len(test_data) // 2
-        
-        # Determine which half to use
-        if args.first_half:
-            test_df = pd.read_csv(path[:-3] + "g1_test.csv")
-        else:
-            test_df = pd.read_csv(path[:-3] + "g2_test.csv")
             
         # Import the new datasets
         train_data, dev_data, test_data = TextMultiLabelDataset.splits(
