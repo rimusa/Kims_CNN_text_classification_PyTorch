@@ -1,8 +1,16 @@
+# This code is improved so as to report new and more relevant metrics
+
 import os
 import sys
 import torch
 import torch.autograd as autograd
 import torch.nn.functional as F
+
+
+#### NEW ####
+# Packages for reporting f1, precision and recall
+from sklearn.metrics import f1_score, precision_score, recall_score
+#### NEW ####
 
 
 def train(train_iter, dev_iter, model, args):
@@ -18,7 +26,8 @@ def train(train_iter, dev_iter, model, args):
     for epoch in range(1, args.epochs+1):
         for batch in train_iter:
             feature, target = batch.text, batch.label
-            feature.t_(), target.sub_(1)  # batch first, index align
+            feature = feature.data.t()
+            target = target.data.sub(1)  # batch first, index align
             if args.cuda:
                 feature, target = feature.cuda(), target.cuda()
 
@@ -45,11 +54,14 @@ def train(train_iter, dev_iter, model, args):
                     last_step = steps
                     if args.save_best:
                         save(model, args.save_dir, 'best', steps)
+                        #### NEW ####
+                        save(model, "./cnn/snapshot/", "best", "model")
+                        #### NEW ####
                 else:
                     if steps - last_step >= args.early_stop:
                         print('early stop by {} steps.'.format(args.early_stop))
             elif steps % args.save_interval == 0:
-                save(model, args.save_dir, 'snapshot', steps)
+                save(model, args.save_dir, './cnn/snapshot', steps)
 
 
 def eval(data_iter, model, args):
@@ -67,6 +79,20 @@ def eval(data_iter, model, args):
         avg_loss += loss.item()
         corrects += (torch.max(logit, 1)
                      [1].view(target.size()).data == target.data).sum()
+        
+        
+        #### NEW ####
+        # Reports the relevant metrics when testing
+        if args.test:
+            output = logit.clone()
+            _, predicted = torch.max(output, 1)
+            predicted = predicted.cpu()
+            target = target.cpu()
+            precision = precision_score(y_true=target, y_pred=predicted, average='weighted')
+            recall = recall_score(y_true=target, y_pred=predicted, average='weighted')
+            f1 = f1_score(y_true=target, y_pred=predicted, average='weighted')
+        #### NEW ####
+            
 
     size = len(data_iter.dataset)
     avg_loss /= size
@@ -75,13 +101,28 @@ def eval(data_iter, model, args):
                                                                        accuracy, 
                                                                        corrects, 
                                                                        size))
+    
+    #### NEW ####
+    # Saves the relevant metrics if a results path is selected
+    if args.results_path is not None:
+        save_test(args, precision, recall, f1, accuracy)
+    #### NEW ####
+    
     return accuracy
 
+
+#### NEW ####
+def save_test(args, precision, recall, f1, accuracy):
+    string = "Precision: {:.3f}\nRecall: {:.3f}\nF1-Score: {:.3f}\n".format(precision,recall,f1)
+    with open(args.results_path,'w', encoding="utf8") as ff:
+        ff.write(string)
+        ff.write("Accuracy: {:.3f}\n".format(accuracy))
+#### NEW ####
+        
 
 def predict(text, model, text_field, label_feild, cuda_flag):
     assert isinstance(text, str)
     model.eval()
-    # text = text_field.tokenize(text)
     text = text_field.preprocess(text)
     text = [[text_field.vocab.stoi[x] for x in text]]
     x = torch.tensor(text)
